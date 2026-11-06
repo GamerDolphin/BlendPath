@@ -601,14 +601,12 @@ function boardEmoji() {
 // 3 = no undos and no hints, 2 = no hints (or one hint and no undos), 1 = otherwise.
 function stars() { return hints === 0 && undos === 0 ? 3 : (hints === 0 || (hints === 1 && undos === 0)) ? 2 : 1; }
 const starText = () => '⭐'.repeat(stars());
-function summary() {
-  return 'Solved in ' + plural(moves, 'move') + ' with ' + (undos ? plural(undos, 'undo') : 'no undos') + ' and ' + (hints ? plural(hints, 'hint') : 'no hints') + '.';
-}
 function shareText() {
   const day = G.mode === 'daily' && new Date(Math.floor(G.date / 10000), Math.floor(G.date / 100) % 100 - 1, G.date % 100).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const head = G.mode === 'daily' ? 'Blend Path · ' + day : 'Blend Path · Level ' + G.level;
   const link = SHARE_URL + (G.mode === 'daily' ? '?daily=' + G.date : '?level=' + G.level);
-  return head + ' ' + starText() + '\n' + summary() + '\nCan you beat my ' + plural(moves, 'move') + '?\n' + link;
+  // the original format: a row of the level's target colors, then how you did, then a link to the same puzzle
+  return head + '\n' + L.targets.map(t => EMOJI(t.h)).join('') + '\n' + plural(moves, 'move') + ' · ' + plural(undos, 'undo') + ' · ' + plural(hints, 'hint') + '\n' + link;
 }
 function copyText(text) {
   const ok = () => toast('Copied! Paste it in a message.');
