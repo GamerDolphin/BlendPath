@@ -4,7 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <meta name="color-scheme" content="light">
+<meta name="theme-color" content="#2f6b57">
+<meta name="apple-mobile-web-app-capable" content="yes">
 <title>Blend Path</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-180.png">
 <style>
   :root { --bg:#f5f2ec; --ink:#2d2a26; --muted:#6b645b; --card:#fffdf9; --accent:#2f6b57; --line:#e2dcd0; --tile:#ece6d8; }
   [hidden] { display: none !important; }
@@ -554,6 +559,11 @@ window.__bp = { getPath, getDaily, genPath, buildPath, verifyPath, openLevel, op
   persistOff: () => { persist = () => {}; } };
 
 renderHome();
+
+// Offline mode: after the first visit the game keeps working with no internet.
+if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+  addEventListener('load', () => navigator.serviceWorker.register('sw.js').catch(() => {}));
+}
 })();
 </script>
 </body>
