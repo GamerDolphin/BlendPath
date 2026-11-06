@@ -179,7 +179,7 @@ if (!CanvasRenderingContext2D.prototype.roundRect) {
 // so mixes are always clean (red + yellow = orange) and never muddy.
 const HUES = { R: 0, Y: 55, G: 130, B: 220, P: 290 };
 const HKEYS = Object.keys(HUES);
-const TOL = 9;                         // degrees a ring may be off and still count
+const TOL = 9;                         // degrees a target may be off and still count
 const col = (h, a = 1, l = 55) => `hsla(${Math.round(h)},74%,${l}%,${a})`;
 const mixHue = (h1, h2, t) => { const d = ((h2 - h1 + 540) % 360) - 180; return (((h1 + d * t) % 360) + 360) % 360; };
 const hueDiff = (a, b) => { const d = Math.abs(a - b) % 360; return d > 180 ? 360 - d : d; };
@@ -208,7 +208,7 @@ function pathParams(k) {
   if (k === 1)  return { n: 2, pairs: 1, tpp: 2 };
   if (k === 2)  return { n: 3, pairs: 1, tpp: 3 };
   if (k === 3)  return { n: 3, pairs: 2, tpp: 2 };
-  if (k <= 5)   return { n: 4, pairs: 3, tpp: 3 };    // short lines + lots of rings: easiest 4x4
+  if (k <= 5)   return { n: 4, pairs: 3, tpp: 3 };    // short lines + lots of targets: easiest 4x4
   if (k <= 8)   return { n: 4, pairs: 3, tpp: 2 };
   if (k <= 12)  return { n: 5, pairs: 4, tpp: 3 };
   if (k <= 18)  return { n: 5, pairs: 4, tpp: 2 };
@@ -216,10 +216,10 @@ function pathParams(k) {
 }
 const PATH_HINTS = {
   1: 'Drag from the red dot to the yellow dot. Every tile must end up colored.',
-  2: 'One long line has to fill the whole board and hit every ring.',
+  2: 'One long line has to fill the whole board and hit every target square.',
   3: 'Two lines now. They can\'t cross, and together they cover every tile.',
-  4: 'Three lines. Each ring shows the color its tile needs, so start with the dots next to a ring.',
-  6: 'Fewer rings this time. Use every dot and fill every tile.',
+  4: 'Three lines. Each dashed square shows the color its tile needs, so start with the dots next to one.',
+  6: 'Fewer target squares this time. Use every dot and fill every tile.',
   9: 'A bigger board with four lines.',
 };
 function genPath(seed, P) {
@@ -247,7 +247,7 @@ function genPath(seed, P) {
   return { kind: 'path', n, sources, targets, walls: [], sol: paths, hint: '' };
 }
 // Proof that a level is possible: the stored solution must fill every tile, use every dot,
-// never cross itself, and match every ring. A level that fails is thrown away and rebuilt.
+// never cross itself, and match every target. A level that fails is thrown away and rebuilt.
 function verifyPath(l) {
   const n = l.n, cov = new Set(), srcCells = new Set(l.sources.map(s => s.r * n + s.c));
   if (l.sources.length !== 2 * l.sol.length) return false;
@@ -266,13 +266,13 @@ function buildPath(seed, P) {
 }
 const pathCache = new Map();
 function getPath(k) {
-  if (!pathCache.has(k)) { const l = buildPath(k * 7919 + 13, pathParams(k)); l.hint = PATH_HINTS[k] || 'Fill every ring, use every dot, color every tile.'; pathCache.set(k, l); }
+  if (!pathCache.has(k)) { const l = buildPath(k * 7919 + 13, pathParams(k)); l.hint = PATH_HINTS[k] || 'Fill every target square, use every dot, color every tile.'; pathCache.set(k, l); }
   return pathCache.get(k);
 }
 const ymd = (d = new Date()) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
 function getDaily(day) {
   const key = 'D' + day;
-  if (!pathCache.has(key)) { const l = buildPath(day * 1000003 + 17, { n: 6, pairs: 5, tpp: 3 }); l.hint = 'Fill every ring, use every dot, color every tile.'; pathCache.set(key, l); }
+  if (!pathCache.has(key)) { const l = buildPath(day * 1000003 + 17, { n: 6, pairs: 5, tpp: 3 }); l.hint = 'Fill every target square, use every dot, color every tile.'; pathCache.set(key, l); }
   return pathCache.get(key);
 }
 
@@ -443,9 +443,9 @@ function ring(t, ok, pulse, now) {
   ctx.save();
   if (ok) { ctx.shadowColor = col(t.h, 0.9, 60); ctx.shadowBlur = CS * 0.28; }
   ctx.fillStyle = col(t.h, ok ? 0.0 : 0.16, 60);
-  ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.fill();
+  ctx.beginPath(); ctx.roundRect(x - R, y - R, R * 2, R * 2, R * 0.5); ctx.fill();
   ctx.lineWidth = ok ? CS * 0.085 : CS * 0.07; ctx.strokeStyle = col(t.h, 1, ok ? 72 : 64); ctx.setLineDash(ok ? [] : [CS * 0.11, CS * 0.085]);
-  ctx.beginPath(); ctx.arc(x, y, R, 0, 7); ctx.stroke(); ctx.setLineDash([]);
+  ctx.beginPath(); ctx.roundRect(x - R, y - R, R * 2, R * 2, R * 0.5); ctx.stroke(); ctx.setLineDash([]);
   ctx.restore();
   if (ok) { ctx.strokeStyle = '#fff'; ctx.lineWidth = CS * 0.07; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(x - CS * 0.1, y + CS * 0.005); ctx.lineTo(x - CS * 0.025, y + CS * 0.08); ctx.lineTo(x + CS * 0.11, y - CS * 0.08); ctx.stroke(); }
@@ -572,7 +572,7 @@ $('hintBtn').onclick = hint;
 // ---------- how to play ----------
 const TUT = [
   { t: 'Draw a line', x: 'Drag from one dot to another dot. Your line moves one tile at a time.' },
-  { t: 'Colors blend', x: "A line fades from one dot's color to the other. A ring shows the color its tile needs. A tick means it matches." },
+  { t: 'Colors blend', x: "A line fades from one dot's color to the other. A dashed square shows the color its tile needs. A tick means it matches." },
   { t: 'Fill the whole board', x: 'Every tile gets colored and every dot is used. Lines can\'t cross. Tap a line to erase it. Stuck? Press Hint.' },
 ];
 let tutStep = 0;
