@@ -296,7 +296,7 @@ let SZ = 300, DPR = 1, PAD = 10, CS = 60, wallSet = new Set();
 // blend-path state
 let paths = [], drawing = null, srcAt = new Map();
 let lastPos = null, headX = 0, headY = 0;
-let hints = 0, ghost = null, flash = null, demo = null, log = [];   // log = what you did, in order (shared instead of the answer)
+let hints = 0, ghost = null, flash = null, demo = null;
 
 const cellX = i => PAD + (i % L.n + 0.5) * CS;
 const cellY = i => PAD + (Math.floor(i / L.n) + 0.5) * CS;
@@ -315,7 +315,7 @@ function startLevelSpec(spec) {
   wallSet = new Set(L.walls || []);
   srcAt = new Map((L.sources || []).map(s => [s.r * L.n + s.c, s]));
   paths = []; drawing = null;
-  moves = 0; undos = 0; hints = 0; log = []; ghost = null; flash = null; demo = null; won = false;
+  moves = 0; undos = 0; hints = 0; ghost = null; flash = null; demo = null; won = false;
   $('gameTitle').textContent = spec.mode === 'daily' ? 'Today' : 'Level ' + spec.level;
   clearTimeout(say.t); $('hint').style.color = ''; $('hint').style.fontWeight = ''; $('hint').textContent = L.hint || '';
   $('home').hidden = true; $('game').hidden = false; $('win').hidden = true;
@@ -335,14 +335,14 @@ function updateHud() {
 function commitPath(cells) {
   const a = cells[0], b = cells[cells.length - 1];
   paths.push({ a, b, cells: cells.slice(), hues: pathHues(a, b, cells.length), t: performance.now() });
-  moves++; log.push('m'); drawing = null; updateHud(); checkWin();
+  moves++; drawing = null; updateHud(); checkWin();
 }
 function undo() {
   if (won) return;
   if (!paths.length) return; paths.pop();
-  undos++; log.push('u'); updateHud();
+  undos++; updateHud();
 }
-function erasePath(pi) { paths.splice(pi, 1); undos++; log.push('u'); updateHud(); }
+function erasePath(pi) { paths.splice(pi, 1); undos++; updateHud(); }
 function isSolved() {
   if (!L.targets.length || !matched().every(Boolean)) return false;
   return coveredCount() === L.n * L.n;   // every tile colored, so every dot is used
@@ -364,7 +364,7 @@ function showWin(isBest) {
   const lvl = G.mode === 'level', best = bestOf();
   let t = (lvl ? 'Level ' + G.level : "Today's puzzle") + ': ' + plural(moves, 'move') + ', ' + plural(undos, 'undo') + (hints ? ', ' + plural(hints, 'hint') : '') + '.';
   if (isBest) t += ' A new best!'; else if (best && (best[0] !== moves || best[1] !== undos)) t += ' Best: ' + plural(best[0], 'move') + ', ' + plural(best[1], 'undo') + '.';
-  $('winText').textContent = t; $('winGrid').textContent = boardEmoji(); $('nextBtn').hidden = !lvl; $('win').hidden = false; confetti();
+  $('winText').textContent = starText() + '  ' + t; $('winGrid').textContent = boardEmoji(); $('nextBtn').hidden = !lvl; $('win').hidden = false; confetti();
 }
 
 // ---------- input ----------
@@ -555,7 +555,7 @@ function hint() {
   const now = performance.now(), good = new Set(); L.sol.forEach(p => { good.add(keyOf(p)); good.add(revOf(p)); });
   demo = null;
   const bad = paths.findIndex(p => !good.has(keyOf(p.cells)));
-  hints++; log.push('h'); updateHud();
+  hints++; updateHud();
   if (bad >= 0) { flash = { i: bad, until: now + 3000 }; ghost = null; say("The red flashing line isn't in the solution I know. Tap it to erase it.", 5000); return; }
   const have = new Set(); paths.forEach(p => { have.add(keyOf(p.cells)); have.add(revOf(p.cells)); });
   const next = L.sol.find(p => !have.has(keyOf(p)));
@@ -592,16 +592,17 @@ function boardEmoji() {
   for (let r = 0; r < n; r++) { let row = ''; for (let c = 0; c < n; c++) row += hm.has(r * n + c) ? EMOJI(hm.get(r * n + c)) : '⬛'; rows.push(row); }
   return rows.join('\n');
 }
-// one square per action, in order: green = a line, red = an undo, yellow = a hint. It shows how you played, not the answer.
-function actionStrip() {
-  const sq = log.map(a => a === 'm' ? '🟩' : a === 'u' ? '🟥' : '🟨'), rows = [];
-  for (let i = 0; i < sq.length; i += 8) rows.push(sq.slice(i, i + 8).join(''));
-  return rows.join('\n') + '\n🟩 line · 🟥 undo · 🟨 hint';
+// Stars say how clean the solve was without saying anything about the answer:
+// 3 = no undos and no hints, 2 = no hints (or one hint and no undos), 1 = otherwise.
+function stars() { return hints === 0 && undos === 0 ? 3 : (hints === 0 || (hints === 1 && undos === 0)) ? 2 : 1; }
+const starText = () => '⭐'.repeat(stars());
+function summary() {
+  return 'Solved in ' + plural(moves, 'move') + ' with ' + (undos ? plural(undos, 'undo') : 'no undos') + ' and ' + (hints ? plural(hints, 'hint') : 'no hints') + '.';
 }
 function shareText() {
   const day = G.mode === 'daily' && new Date(Math.floor(G.date / 10000), Math.floor(G.date / 100) % 100 - 1, G.date % 100).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const head = G.mode === 'daily' ? 'Blend Path · ' + day : 'Blend Path · Level ' + G.level;
-  return head + '\n' + actionStrip() + '\n' + plural(moves, 'move') + ' · ' + plural(undos, 'undo') + ' · ' + plural(hints, 'hint') + '\n' + SHARE_URL;
+  return head + ' ' + starText() + '\n' + summary() + '\nThink you can beat it?\n' + SHARE_URL;
 }
 function copyText(text) {
   const ok = () => toast('Copied! Paste it in a message.');
