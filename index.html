@@ -75,7 +75,19 @@
   .sheet { background:var(--card); border:3px solid var(--ink); border-radius:26px; padding:24px 22px 22px; width:min(100%,370px); text-align:center; box-shadow:0 8px 0 rgba(43,36,56,.25); }
   .sheet h2 { margin:0 0 6px; font-size:32px; font-weight:700; }
   .sheet p { margin:0; color:var(--muted); font-size:17px; line-height:1.35; }
-  .grid { white-space:pre; margin:14px 0 2px; font-size:28px; line-height:1.12; letter-spacing:1px; font-family:system-ui,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; }
+  .stars { font-size:38px; line-height:1; color:var(--coral); letter-spacing:4px; margin:10px 0 6px; font-family:system-ui,sans-serif; }
+  #winBoard { display:block; margin:12px auto 0; width:132px; height:132px; }
+  textarea { width:100%; font:inherit; font-size:15px; padding:10px 12px; border-radius:12px; border:2px solid var(--line); background:var(--bg); color:var(--ink); resize:none; margin:8px 0; -webkit-user-select:text; user-select:text; }
+  .sheet.left { text-align:left; max-height:92vh; overflow-y:auto; }
+  .sheet.left h2 { font-size:28px; }
+  .sheet h3 { font-size:14px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); margin:18px 0 6px; font-weight:600; }
+  .sheet.left p { font-size:16px; }
+  .seg { display:flex; gap:8px; }
+  .seg button { flex:1; min-height:48px; border-radius:14px; border:2px solid var(--line); background:var(--card); font-weight:600; font-size:17px; }
+  .seg button[aria-pressed="true"] { border-color:var(--coral); background:var(--coral); color:var(--on-coral); }
+  .danger { background:#c0392b; color:#fff; border:none; box-shadow:0 4px 0 #8e2a20; }
+  .gap { margin-top:10px; }
+  html[data-look="classic"] canvas#cv { background:#fffaf1; border-color:var(--ink); box-shadow:0 8px 0 rgba(43,36,56,.12), 0 16px 26px rgba(43,36,56,.12); }
   .stack { display:flex; flex-direction:column; gap:12px; margin-top:18px; }
   .dots { display:flex; justify-content:center; gap:8px; margin-top:14px; }
   .dots i { width:10px; height:10px; border-radius:50%; background:var(--line); }
@@ -116,6 +128,7 @@
   <button class="primary wide" id="continueBtn">Play</button>
   <h2 class="st">Levels</h2>
   <div class="levels" id="levels"></div>
+  <button class="ghost wide" id="settingsBtn" style="margin-top:22px">Settings and save code</button>
 </main>
 
 <main id="game" class="view" hidden>
@@ -138,7 +151,8 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="winTitle">
     <h2 id="winTitle">Nicely blended!</h2>
     <p id="winText"></p>
-    <div class="grid" id="winGrid" aria-hidden="true"></div>
+    <div class="stars" id="winStars" role="img"></div>
+    <canvas id="winBoard" width="264" height="264" aria-hidden="true"></canvas>
     <div class="stack">
       <button class="primary wide" id="nextBtn">Next level</button>
       <button class="secondary wide" id="shareBtn">Share result</button>
@@ -155,6 +169,32 @@
       <button class="primary wide" id="tutNext">Next</button>
       <button class="ghost wide" id="tutSkip">Skip</button>
     </div>
+  </div>
+</div>
+<div id="settings" class="overlay" hidden>
+  <div class="sheet left" role="dialog" aria-modal="true" aria-labelledby="setTitle">
+    <h2 id="setTitle">Settings</h2>
+    <h3>Board look</h3>
+    <div class="seg"><button id="lookClassic" aria-pressed="false">Classic</button><button id="lookNight" aria-pressed="false">Night</button></div>
+    <h3>Your progress</h3>
+    <p id="saveStatus"></p>
+    <p>Your save code backs up your progress. Keep it somewhere safe, or paste it on another phone or browser.</p>
+    <textarea id="codeOut" readonly rows="3" aria-label="Your save code"></textarea>
+    <button class="secondary wide" id="copyCode">Copy my save code</button>
+    <textarea id="codeIn" rows="3" placeholder="Paste a save code here" aria-label="Paste a save code"></textarea>
+    <button class="secondary wide" id="restoreCode">Restore from this code</button>
+    <p id="restoreMsg"></p>
+    <p style="font-size:14px;color:var(--muted)">Restoring adds to what is already on this device. Nothing is lost. On an iPhone, the home-screen app and Safari keep separate progress, so use a save code to move it.</p>
+    <button class="ghost wide gap" id="eraseBtn">Erase all progress...</button>
+    <div id="eraseBox" hidden>
+      <p id="eraseWarn"></p>
+      <div class="stack" style="margin-top:12px">
+        <button class="secondary wide" id="eraseCancel">Cancel, keep my progress</button>
+        <button class="primary danger wide" id="eraseGo">Erase everything</button>
+      </div>
+    </div>
+    <button class="ghost wide gap" id="undoErase" hidden>Bring back my old progress</button>
+    <div class="stack"><button class="primary wide" id="closeSettings">Done</button></div>
   </div>
 </div>
 <canvas id="fx" aria-hidden="true"></canvas>
@@ -277,15 +317,51 @@ function getDaily(day) {
 }
 
 // ---------- save ----------
-const KEY = 'blendpath-save-v2';
-const obj = o => (o && typeof o === 'object' ? o : {});
-function loadSave() {
-  let s = null; try { s = JSON.parse(localStorage.getItem(KEY)); } catch (e) {}
-  s = obj(s);
-  return { completed: +s.completed || 0, best: obj(s.best), daily: obj(s.daily), tut: !!s.tut };
+// Progress is written to localStorage twice (main + backup) every time something changes, and an unfinished puzzle is
+// kept per level so closing the app never loses your lines. A save code backs it up or moves it to another device.
+const KEY = 'blendpath-save-v2', BACKUP = KEY + '-backup', UNDO_KEY = KEY + '-undo', LOOK_KEY = 'blendpath-look';
+const obj = o => (o && typeof o === 'object' && !Array.isArray(o) ? o : {});
+const num = (v, lo, hi) => Math.min(hi, Math.max(lo, Math.floor(+v) || 0));
+const pair = v => (Array.isArray(v) && v.length >= 2 && Number.isFinite(+v[0]) && Number.isFinite(+v[1])) ? [num(v[0], 0, 9999), num(v[1], 0, 9999)] : null;
+// every load, import and restore goes through here, so odd or old data is repaired instead of trusted
+function normalize(raw) {
+  const s = obj(raw), out = { completed: 0, best: {}, daily: {}, tut: !!s.tut, prog: {}, order: [], at: +s.at || 0 };
+  for (const k of Object.keys(obj(s.best))) { const p = pair(s.best[k]); if (/^\d{1,3}$/.test(k) && p) out.best[k] = p; }
+  for (const k of Object.keys(obj(s.daily))) { const p = pair(s.daily[k]); if (/^\d{8}$/.test(k) && p) out.daily[k] = p; }
+  out.completed = Math.max(num(s.completed, 0, 999), ...Object.keys(out.best).map(Number));
+  const order = Array.isArray(s.order) ? s.order : Object.keys(obj(s.prog));
+  for (const k of order) {
+    const e = obj(obj(s.prog)[k]);
+    if (/^(L\d{1,3}|D\d{8})$/.test(k) && Array.isArray(e.p) && !out.prog[k])
+      { out.prog[k] = { p: e.p.filter(Array.isArray).map(c => c.map(x => num(x, 0, 99))), m: num(e.m, 0, 9999), u: num(e.u, 0, 9999), h: num(e.h, 0, 9999) }; out.order.push(k); }
+  }
+  while (out.order.length > 12) delete out.prog[out.order.shift()];
+  return out;
 }
-let save = loadSave();
-function persist() { try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {} }
+function readKey(k) { try { const raw = localStorage.getItem(k); if (!raw) return null; const s = JSON.parse(raw); return s && typeof s === 'object' && typeof s.completed === 'number' ? s : null; } catch (e) { return null; } }
+let save = normalize(readKey(KEY) || readKey(BACKUP));      // the backup is used if the main copy is missing or damaged
+let saveFailed = false;
+function persist() {
+  save.at = Date.now();
+  try { const j = JSON.stringify(save); localStorage.setItem(KEY, j); localStorage.setItem(BACKUP, j); saveFailed = false; }
+  catch (e) { if (!saveFailed) toast("Couldn't save on this device. Open Settings and copy your save code.", 6000); saveFailed = true; }
+}
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {}); } catch (e) {}   // ask the browser not to clean it up
+addEventListener('pagehide', () => persist());
+document.addEventListener('visibilitychange', () => { if (document.hidden) persist(); });
+// save code: a text you can copy to back up or move progress
+function saveCode() { return 'BP1-' + btoa(unescape(encodeURIComponent(JSON.stringify(save)))) + '.'; }
+// Accepts a code pasted inside a message: extra words before or after, line breaks inside it, or a lost final "."
+function loadCode(text) {
+  const t = String(text).replace(/\s+/g, '');
+  const parse = b64 => { try { const s = JSON.parse(decodeURIComponent(escape(atob(b64)))); return s && typeof s === 'object' && typeof s.completed === 'number' ? normalize(s) : null; } catch (e) { return null; } };
+  let m = /BP1-([A-Za-z0-9+\/=]+)\./.exec(t);
+  if (m) return parse(m[1]);
+  m = /BP1-([A-Za-z0-9+\/=]+)/.exec(t);                    // no final "." : try the run, trimming stray trailing letters
+  if (!m) return null;
+  for (let cut = 0; cut <= 14 && cut < m[1].length; cut++) { const r = parse(m[1].slice(0, m[1].length - cut)); if (r) return r; }
+  return null;
+}
 const better = (a, b) => !b || a[0] < b[0] || (a[0] === b[0] && a[1] < b[1]);
 const plural = (n, w) => n + ' ' + w + (n === 1 ? '' : 's');
 
@@ -297,6 +373,16 @@ let SZ = 300, DPR = 1, PAD = 10, CS = 60, wallSet = new Set();
 let paths = [], drawing = null, srcAt = new Map();
 let lastPos = null, headX = 0, headY = 0;
 let hints = 0, ghost = null, flash = null, demo = null;
+// two board looks: Classic (light board, soft tinted tiles) and Night (dark board, vivid tiles)
+const LOOKS = {
+  night: { tile: '#3b3559', tileEdge: 'rgba(255,255,255,.07)', cov: h => col(h, 0.92, 44), covEdge: 'rgba(255,255,255,.22)', lineL: 68, joint: h => col(h, 1, 74),
+    tgtL: 64, tgtOkL: 72, tgtGlow: true, tgtFill: 0.16, tick: '#fff', ghost: a => 'rgba(255,255,255,' + a + ')', demo: 'rgba(255,255,255,.45)', demoDot: 'rgba(255,255,255,.95)', demoEdge: 'rgba(20,24,43,.6)',
+    edgeL: 28, faceL: 58, pip: 'rgba(255,255,255,.92)', pipUsed: 'rgba(255,255,255,.35)', drawL: 70, mini: '#2b2540', miniL: 50 },
+  classic: { tile: '#efe7d6', tileEdge: 'rgba(43,36,56,.07)', cov: h => col(h, 0.5, 62), covEdge: 'rgba(43,36,56,.10)', lineL: 50, joint: h => col(h, 1, 40),
+    tgtL: 44, tgtOkL: 40, tgtGlow: false, tgtFill: 0.10, tick: '#2b2438', ghost: a => 'rgba(43,36,56,' + a + ')', demo: 'rgba(43,36,56,.4)', demoDot: 'rgba(43,36,56,.9)', demoEdge: 'rgba(255,255,255,.8)',
+    edgeL: 34, faceL: 56, pip: 'rgba(255,255,255,.95)', pipUsed: 'rgba(255,255,255,.5)', drawL: 54, mini: '#fffaf1', miniL: 58 },
+};
+let look = 'classic', T = LOOKS.classic;
 
 const cellX = i => PAD + (i % L.n + 0.5) * CS;
 const cellY = i => PAD + (Math.floor(i / L.n) + 0.5) * CS;
@@ -309,7 +395,31 @@ function matched() {
 }
 const coveredCount = () => paths.reduce((s, p) => s + p.cells.length, 0);
 
-function startLevelSpec(spec) {
+const puzKey = () => G.mode === 'daily' ? 'D' + G.date : 'L' + G.level;
+function saveProgress() {          // an unfinished puzzle survives closing the app
+  if (!G || won) return; const k = puzKey();
+  if (!paths.length && !moves && !undos && !hints) { dropProgress(k); return; }
+  save.prog[k] = { p: paths.map(p => p.cells.slice()), m: moves, u: undos, h: hints };
+  save.order = save.order.filter(x => x !== k); save.order.push(k);
+  while (save.order.length > 12) delete save.prog[save.order.shift()];
+  persist();
+}
+function dropProgress(k) { if (save.prog[k]) { delete save.prog[k]; save.order = save.order.filter(x => x !== k); persist(); } }
+// only accepts saved lines that are valid for THIS puzzle (right ends, touching tiles, no overlaps)
+function restoreProgress(pr) {
+  const n = L.n, seen = new Set(), out = [];
+  for (const c of pr.p) {
+    if (c.length < 2 || !srcAt.has(c[0]) || !srcAt.has(c[c.length - 1]) || c[0] === c[c.length - 1]) return false;
+    for (let i = 0; i < c.length; i++) {
+      if (c[i] >= n * n || seen.has(c[i]) || (i && !nbrs(n, c[i - 1]).includes(c[i])) || (i && i < c.length - 1 && srcAt.has(c[i]))) return false;
+      seen.add(c[i]);
+    }
+    out.push(c);
+  }
+  paths = out.map(c => ({ a: c[0], b: c[c.length - 1], cells: c.slice(), hues: pathHues(c[0], c[c.length - 1], c.length), t: -1e9 }));
+  moves = pr.m; undos = pr.u; hints = pr.h; return true;
+}
+function startLevelSpec(spec, fresh) {
   G = spec; bits = [];   // clear any confetti left from the last win
   L = spec.mode === 'daily' ? getDaily(spec.date) : getPath(spec.level);
   wallSet = new Set(L.walls || []);
@@ -318,6 +428,12 @@ function startLevelSpec(spec) {
   moves = 0; undos = 0; hints = 0; ghost = null; flash = null; demo = null; won = false;
   $('gameTitle').textContent = spec.mode === 'daily' ? 'Today' : 'Level ' + spec.level;
   clearTimeout(say.t); $('hint').style.color = ''; $('hint').style.fontWeight = ''; $('hint').textContent = L.hint || '';
+  const pk = puzKey();
+  if (fresh) dropProgress(pk);
+  else if (save.prog[pk]) {
+    if (restoreProgress(save.prog[pk]) && !isSolved()) toast('Picked up where you left off.');
+    else { paths = []; moves = 0; undos = 0; hints = 0; dropProgress(pk); }
+  }
   $('home').hidden = true; $('game').hidden = false; $('win').hidden = true;
   updateHud(); resize(); requestAnimationFrame(resize);
   if (spec.mode === 'level' && spec.level === 1 && !save.tut) setTimeout(() => { if (G === spec && !$('game').hidden && !won) showTut(); }, 350);
@@ -335,14 +451,14 @@ function updateHud() {
 function commitPath(cells) {
   const a = cells[0], b = cells[cells.length - 1];
   paths.push({ a, b, cells: cells.slice(), hues: pathHues(a, b, cells.length), t: performance.now() });
-  moves++; drawing = null; updateHud(); checkWin();
+  moves++; drawing = null; updateHud(); checkWin(); if (!won) saveProgress();
 }
 function undo() {
   if (won) return;
   if (!paths.length) return; paths.pop();
-  undos++; updateHud();
+  undos++; updateHud(); saveProgress();
 }
-function erasePath(pi) { paths.splice(pi, 1); undos++; updateHud(); }
+function erasePath(pi) { paths.splice(pi, 1); undos++; updateHud(); saveProgress(); }
 function isSolved() {
   if (!L.targets.length || !matched().every(Boolean)) return false;
   return coveredCount() === L.n * L.n;   // every tile colored, so every dot is used
@@ -357,14 +473,15 @@ function checkWin() {
   } else {
     const prev = save.daily[G.date]; if (better(cur, prev)) { save.daily[G.date] = cur; isBest = !!prev; }
   }
-  const spec = G; persist(); setTimeout(() => { if (G === spec && won && !$('game').hidden) showWin(isBest); }, 700);
+  const spec = G; dropProgress(puzKey()); persist(); setTimeout(() => { if (G === spec && won && !$('game').hidden) showWin(isBest); }, 700);
 }
 function bestOf() { return G.mode === 'level' ? save.best[G.level] : save.daily[G.date]; }
 function showWin(isBest) {
   const lvl = G.mode === 'level', best = bestOf();
   let t = (lvl ? 'Level ' + G.level : "Today's puzzle") + ': ' + plural(moves, 'move') + ', ' + plural(undos, 'undo') + (hints ? ', ' + plural(hints, 'hint') : '') + '.';
   if (isBest) t += ' A new best!'; else if (best && (best[0] !== moves || best[1] !== undos)) t += ' Best: ' + plural(best[0], 'move') + ', ' + plural(best[1], 'undo') + '.';
-  $('winText').textContent = starText() + '  ' + t; $('winGrid').textContent = boardEmoji(); $('nextBtn').hidden = !lvl; $('win').hidden = false; confetti();
+  $('winText').textContent = t; $('winStars').textContent = starText(); $('winStars').setAttribute('aria-label', stars() + ' out of 3 stars'); drawMini();
+  $('nextBtn').hidden = !lvl; $('win').hidden = false; confetti();
 }
 
 // ---------- input ----------
@@ -434,20 +551,20 @@ function resize() {
 addEventListener('resize', resize);
 function seg(x1, y1, x2, y2, h1, h2, w) {
   const g = ctx.createLinearGradient(x1, y1, x2, y2);
-  g.addColorStop(0, col(h1, 1, 68)); g.addColorStop(1, col(h2, 1, 68));
+  g.addColorStop(0, col(h1, 1, T.lineL)); g.addColorStop(1, col(h2, 1, T.lineL));
   ctx.strokeStyle = g; ctx.lineWidth = w; ctx.lineCap = 'round';
   ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
 }
 function ring(t, ok, pulse, now) {
   const n = L.n, i = t.r * n + t.c, x = cellX(i), y = cellY(i), R = CS * 0.37 * (ok ? pulse : 1);
   ctx.save();
-  if (ok) { ctx.shadowColor = col(t.h, 0.9, 60); ctx.shadowBlur = CS * 0.28; }
-  ctx.fillStyle = col(t.h, ok ? 0.0 : 0.16, 60);
+  if (ok && T.tgtGlow) { ctx.shadowColor = col(t.h, 0.9, 60); ctx.shadowBlur = CS * 0.28; }
+  ctx.fillStyle = col(t.h, ok ? 0.0 : T.tgtFill, 60);
   ctx.beginPath(); ctx.roundRect(x - R, y - R, R * 2, R * 2, R * 0.5); ctx.fill();
-  ctx.lineWidth = ok ? CS * 0.085 : CS * 0.07; ctx.strokeStyle = col(t.h, 1, ok ? 72 : 64); ctx.setLineDash(ok ? [] : [CS * 0.11, CS * 0.085]);
+  ctx.lineWidth = ok ? CS * 0.085 : CS * 0.07; ctx.strokeStyle = col(t.h, 1, ok ? T.tgtOkL : T.tgtL); ctx.setLineDash(ok ? [] : [CS * 0.11, CS * 0.085]);
   ctx.beginPath(); ctx.roundRect(x - R, y - R, R * 2, R * 2, R * 0.5); ctx.stroke(); ctx.setLineDash([]);
   ctx.restore();
-  if (ok) { ctx.strokeStyle = '#fff'; ctx.lineWidth = CS * 0.07; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  if (ok) { ctx.strokeStyle = T.tick; ctx.lineWidth = CS * 0.07; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(x - CS * 0.1, y + CS * 0.005); ctx.lineTo(x - CS * 0.025, y + CS * 0.08); ctx.lineTo(x + CS * 0.11, y - CS * 0.08); ctx.stroke(); }
 }
 // Rounded-square token that matches the tiles: darker edge underneath, solid face, a small inner square.
@@ -458,31 +575,30 @@ function dot(x, y, h, r, now, idle) {
     const p = Math.sin(now / 320), g = r + CS * (0.07 + 0.025 * p);
     ctx.fillStyle = col(h, 0.16 + 0.08 * p, 64); rr(x - g, y - g, g * 2, g * 0.42); ctx.fill();
   }
-  ctx.fillStyle = col(h, 1, 28); rr(x - r, y - r + CS * 0.06, r * 2, r * 0.4); ctx.fill();            // edge
-  ctx.fillStyle = col(h, 1, 58); rr(x - r, y - r, r * 2, r * 0.4); ctx.fill();                        // face
+  ctx.fillStyle = col(h, 1, T.edgeL); rr(x - r, y - r + CS * 0.06, r * 2, r * 0.4); ctx.fill();         // edge
+  ctx.fillStyle = col(h, 1, T.faceL); rr(x - r, y - r, r * 2, r * 0.4); ctx.fill();                      // face
   const q = r * 0.34;
-  ctx.fillStyle = idle ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.35)'; rr(x - q, y - q, q * 2, q * 0.45); ctx.fill();
+  ctx.fillStyle = idle ? T.pip : T.pipUsed; rr(x - q, y - q, q * 2, q * 0.45); ctx.fill();
 }
 function draw(now) {
   if (!L || $('game').hidden) return;
   ctx.clearRect(0, 0, SZ, SZ);
   const n = L.n, mt = matched(), hm = hueMap();
-  // tiles: empty = dark slate; a tile a line covers is filled with that line's colour
   for (let i = 0; i < n * n; i++) {
     const x = PAD + (i % n) * CS, y = PAD + Math.floor(i / n) * CS, h = hm.get(i), rr = CS * 0.2;
-    ctx.fillStyle = h != null ? col(h, 0.92, 44) : '#3b3559';
+    ctx.fillStyle = h != null ? T.cov(h) : T.tile;
     ctx.beginPath(); ctx.roundRect(x + 3, y + 3, CS - 6, CS - 6, rr); ctx.fill();
-    ctx.strokeStyle = h != null ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.07)'; ctx.lineWidth = 1.5;
+    ctx.strokeStyle = h != null ? T.covEdge : T.tileEdge; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.roundRect(x + 3.75, y + 3.75, CS - 7.5, CS - 7.5, rr); ctx.stroke();
   }
   const pulse = won ? 1 + 0.08 * Math.sin((now - winAt) / 120) : 1;
   paths.forEach(p => {
     const age = Math.min(1, (now - p.t) / 250), w = CS * (0.13 + 0.06 * Math.sin(age * Math.PI));
     for (let k = 0; k < p.cells.length - 1; k++) seg(cellX(p.cells[k]), cellY(p.cells[k]), cellX(p.cells[k + 1]), cellY(p.cells[k + 1]), p.hues[k], p.hues[k + 1], w);
-    for (let k = 1; k < p.cells.length - 1; k++) { ctx.fillStyle = col(p.hues[k], 1, 74); ctx.beginPath(); ctx.arc(cellX(p.cells[k]), cellY(p.cells[k]), CS * 0.09, 0, 7); ctx.fill(); }
+    for (let k = 1; k < p.cells.length - 1; k++) { ctx.fillStyle = T.joint(p.hues[k]); ctx.beginPath(); ctx.arc(cellX(p.cells[k]), cellY(p.cells[k]), CS * 0.09, 0, 7); ctx.fill(); }
   });
   if (ghost && now < ghost.until) {                       // hint: the line to try, as a pulsing dashed outline
-    const c = ghost.cells; ctx.strokeStyle = 'rgba(255,255,255,' + (0.55 + 0.3 * Math.sin(now / 160)) + ')'; ctx.lineWidth = CS * 0.16; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    const c = ghost.cells; ctx.strokeStyle = T.ghost(0.55 + 0.3 * Math.sin(now / 160)); ctx.lineWidth = CS * 0.16; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.setLineDash([CS * 0.14, CS * 0.2]); ctx.lineDashOffset = -now / 40;
     ctx.beginPath(); ctx.moveTo(cellX(c[0]), cellY(c[0])); for (let k = 1; k < c.length; k++) ctx.lineTo(cellX(c[k]), cellY(c[k])); ctx.stroke(); ctx.setLineDash([]);
   } else ghost = null;
@@ -492,28 +608,38 @@ function draw(now) {
   } else flash = null;
   if (demo && !paths.length && !drawing) {                 // tutorial: a finger shows how to drag
     const c = demo.path, prog = Math.min(1, (((now - demo.t0) / 2600) % 1.5)), f = prog * (c.length - 1), k = Math.min(c.length - 2, Math.floor(f)), u = f - k;
-    ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = CS * 0.14; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = T.demo; ctx.lineWidth = CS * 0.14; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(cellX(c[0]), cellY(c[0])); for (let j = 1; j <= k; j++) ctx.lineTo(cellX(c[j]), cellY(c[j]));
     const fx = cellX(c[k]) + (cellX(c[k + 1]) - cellX(c[k])) * u, fy = cellY(c[k]) + (cellY(c[k + 1]) - cellY(c[k])) * u; ctx.lineTo(fx, fy); ctx.stroke();
-    ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(fx, fy, CS * 0.17, 0, 7); ctx.fill();
-    ctx.strokeStyle = 'rgba(20,24,43,.6)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(fx, fy, CS * 0.17, 0, 7); ctx.stroke();
+    ctx.fillStyle = T.demoDot; ctx.beginPath(); ctx.arc(fx, fy, CS * 0.17, 0, 7); ctx.fill();
+    ctx.strokeStyle = T.demoEdge; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(fx, fy, CS * 0.17, 0, 7); ctx.stroke();
   } else if (demo && (paths.length || drawing)) demo = null;
   if (drawing && drawing.cells.length > 1) {
     const h = srcAt.get(drawing.start).h, cs = drawing.cells;
-    ctx.strokeStyle = col(h, 0.7, 70); ctx.lineWidth = CS * 0.14; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+    ctx.strokeStyle = col(h, 0.7, T.drawL); ctx.lineWidth = CS * 0.14; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(cellX(cs[0]), cellY(cs[0])); for (let k = 1; k < cs.length; k++) ctx.lineTo(cellX(cs[k]), cellY(cs[k])); ctx.stroke();
   }
   if (drawing) {
     const h = srcAt.get(drawing.start).h, cs = drawing.cells, last = cs[cs.length - 1];
-    ctx.strokeStyle = col(h, 0.4, 70); ctx.lineWidth = CS * 0.1; ctx.lineCap = 'round';
+    ctx.strokeStyle = col(h, 0.4, T.drawL); ctx.lineWidth = CS * 0.1; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(cellX(last), cellY(last)); ctx.lineTo(headX, headY); ctx.stroke();
-    ctx.fillStyle = col(h, 1, 78); ctx.beginPath(); ctx.arc(headX, headY, CS * 0.13, 0, 7); ctx.fill();
+    ctx.fillStyle = col(h, 1, T.drawL + 8); ctx.beginPath(); ctx.arc(headX, headY, CS * 0.13, 0, 7); ctx.fill();
   }
   L.targets.forEach((t, i) => ring(t, mt[i], pulse, now));
   L.sources.forEach(s => {
     const i = s.r * n + s.c, used = paths.some(p => p.a === i || p.b === i);
     dot(cellX(i), cellY(i), s.h, CS * 0.31, now, !used && !won);
   });
+}
+// small picture of the finished board for the win sheet
+function drawMini() {
+  const c = $('winBoard'), g = c.getContext('2d'), S = 132, n = L.n, gap = 3, t = (S - gap * (n + 1)) / n, hm = hueMap();
+  g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, S, S);
+  g.fillStyle = T.mini; g.beginPath(); g.roundRect(0, 0, S, S, 16); g.fill();
+  for (let r = 0; r < n; r++) for (let q = 0; q < n; q++) {
+    const h = hm.get(r * n + q); g.fillStyle = h != null ? col(h, 1, T.miniL) : '#999';
+    g.beginPath(); g.roundRect(gap + q * (t + gap), gap + r * (t + gap), t, t, Math.max(3, t * 0.25)); g.fill();
+  }
 }
 (function loop(now) { draw(now || performance.now()); requestAnimationFrame(loop); })();
 
@@ -528,19 +654,20 @@ function say(msg, ms) {
 function fillGrid(box, upto, best, open) {
   box.innerHTML = '';
   for (let k = 1; k <= upto; k++) {
-    const b = document.createElement('button'); b.className = 'lvl' + (best[k] ? ' done' : (k === upto ? ' next' : ''));
+    const b = document.createElement('button'), going = !best[k] && save.prog['L' + k];
+    b.className = 'lvl' + (best[k] ? ' done' : (k === upto ? ' next' : ''));
     const n = document.createElement('span'); n.className = 'n'; n.textContent = k;
-    const s = document.createElement('span'); s.className = 's'; s.textContent = best[k] ? plural(best[k][0], 'move') : 'new';
+    const s = document.createElement('span'); s.className = 's'; s.textContent = best[k] ? plural(best[k][0], 'move') : (going ? 'in progress' : 'new');
     b.append(n, s); b.onclick = () => open(k); box.appendChild(b);
   }
 }
 function renderHome() {
   const today = ymd(); $('todayDate').textContent = fmtDate(today);
-  const t = save.daily[today];
-  $('todayStatus').textContent = t ? 'Solved in ' + plural(t[0], 'move') + ', ' + plural(t[1], 'undo') : 'Not played yet';
-  $('playToday').textContent = t ? 'Play it again' : "Play today's puzzle";
-  $('continueBtn').textContent = 'Play level ' + (save.completed + 1);
-  fillGrid($('levels'), save.completed + 1, save.best, openLevel);
+  const t = save.daily[today], dp = save.prog['D' + today], next = save.completed + 1;
+  $('todayStatus').textContent = t ? 'Solved in ' + plural(t[0], 'move') + ', ' + plural(t[1], 'undo') : (dp ? 'In progress' : 'Not played yet');
+  $('playToday').textContent = t ? 'Play it again' : (dp ? "Continue today's puzzle" : "Play today's puzzle");
+  $('continueBtn').textContent = (save.prog['L' + next] ? 'Continue level ' : 'Play level ') + next;
+  fillGrid($('levels'), next, save.best, openLevel);
 }
 // colourful logo and tile motif on the home screen
 $('mini').innerHTML = [0, 1, 2, 5, 4, 3, 6, 7, 8].map((cell, i) => ({ cell, i })).sort((a, b) => a.cell - b.cell).map(o => '<i style="background:hsl(' + o.i * 36 + ',74%,56%)"></i>').join('');
@@ -549,7 +676,7 @@ $('playToday').onclick = openDaily;
 $('continueBtn').onclick = () => openLevel(save.completed + 1);
 $('backBtn').onclick = goHome;
 $('undoBtn').onclick = undo;
-$('restartBtn').onclick = () => { if (paths.length && !won && !confirm('Start this puzzle over?')) return; startLevelSpec(G); };
+$('restartBtn').onclick = () => { if (paths.length && !won && !confirm('Start this puzzle over?')) return; startLevelSpec(G, true); };
 $('winMenuBtn').onclick = goHome;
 
 // ---------- hint ----------
@@ -560,7 +687,7 @@ function hint() {
   const now = performance.now(), good = new Set(); L.sol.forEach(p => { good.add(keyOf(p)); good.add(revOf(p)); });
   demo = null;
   const bad = paths.findIndex(p => !good.has(keyOf(p.cells)));
-  hints++; updateHud();
+  hints++; updateHud(); saveProgress();
   if (bad >= 0) { flash = { i: bad, until: now + 3000 }; ghost = null; say("The red flashing line isn't in the solution I know. Tap it to erase it.", 5000); return; }
   const have = new Set(); paths.forEach(p => { have.add(keyOf(p.cells)); have.add(revOf(p.cells)); });
   const next = L.sol.find(p => !have.has(keyOf(p)));
@@ -590,28 +717,21 @@ $('helpBtn').onclick = showTut;
 $('nextBtn').onclick = () => openLevel(G.level + 1);
 
 const SHARE_URL = 'https://gamerdolphin.github.io/BlendPath/';
-const EMOJI = h => (h < 20 || h >= 340) ? '🟥' : h < 45 ? '🟧' : h < 80 ? '🟨' : h < 170 ? '🟩' : h < 255 ? '🟦' : '🟪';
-// the finished board as coloured squares, like a Wordle result
-function boardEmoji() {
-  const hm = hueMap(), n = L.n, rows = [];
-  for (let r = 0; r < n; r++) { let row = ''; for (let c = 0; c < n; c++) row += hm.has(r * n + c) ? EMOJI(hm.get(r * n + c)) : '⬛'; rows.push(row); }
-  return rows.join('\n');
-}
-// Stars say how clean the solve was without saying anything about the answer:
-// 3 = no undos and no hints, 2 = no hints (or one hint and no undos), 1 = otherwise.
+// Stars say how clean the solve was: 3 = no undos and no hints, 2 = no hints (or one hint and no undos), 1 = otherwise.
 function stars() { return hints === 0 && undos === 0 ? 3 : (hints === 0 || (hints === 1 && undos === 0)) ? 2 : 1; }
-const starText = () => '⭐'.repeat(stars());
+const starText = () => '★'.repeat(stars()) + '☆'.repeat(3 - stars());
 function summary() {
   return 'Solved in ' + plural(moves, 'move') + ' with ' + (undos ? plural(undos, 'undo') : 'no undos') + ' and ' + (hints ? plural(hints, 'hint') : 'no hints') + '.';
 }
+// plain words only: no emoji, no hint about the answer, and a link that opens the same puzzle
 function shareText() {
   const day = G.mode === 'daily' && new Date(Math.floor(G.date / 10000), Math.floor(G.date / 100) % 100 - 1, G.date % 100).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-  const head = G.mode === 'daily' ? 'Blend Path · ' + day : 'Blend Path · Level ' + G.level;
+  const head = G.mode === 'daily' ? 'Blend Path, ' + day : 'Blend Path, Level ' + G.level;
   const link = SHARE_URL + (G.mode === 'daily' ? '?daily=' + G.date : '?level=' + G.level);
-  return head + ' ' + starText() + '\n' + summary() + '\nCan you beat my ' + plural(moves, 'move') + '?\n' + link;
+  return head + '\n' + summary() + '\nCan you beat my ' + plural(moves, 'move') + '?\n' + link;
 }
-function copyText(text) {
-  const ok = () => toast('Copied! Paste it in a message.');
+function copyText(text, msg) {
+  const ok = () => toast(msg || 'Copied! Paste it in a message.');
   const fb = () => { const t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.cssText = 'position:fixed;opacity:0'; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); ok(); } catch (e) { toast('Could not copy'); } t.remove(); };
   if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fb); else fb();
 }
@@ -619,6 +739,51 @@ $('shareBtn').onclick = async () => {
   const text = shareText();
   try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === 'AbortError') return; }
   copyText(text);
+};
+
+// ---------- settings ----------
+function setLook(v, remember) {
+  look = LOOKS[v] ? v : 'classic'; T = LOOKS[look]; document.documentElement.dataset.look = look;
+  if (remember) { try { localStorage.setItem(LOOK_KEY, look); } catch (e) {} }
+  $('lookClassic').setAttribute('aria-pressed', look === 'classic'); $('lookNight').setAttribute('aria-pressed', look === 'night');
+}
+function hasUndo() { try { return !!localStorage.getItem(UNDO_KEY); } catch (e) { return false; } }
+function refreshSettings() {
+  $('codeOut').value = saveCode();
+  const when = save.at ? new Date(save.at).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : 'not yet';
+  const base = saveFailed ? "This browser isn't letting the game save. Copy your save code below to keep your progress." : 'Saved on this device. ' + plural(save.completed, 'level') + ' done. Last saved ' + when + '.';
+  $('saveStatus').textContent = base;
+  try { if (!saveFailed && navigator.storage && navigator.storage.persisted) navigator.storage.persisted().then(p => { if (p) $('saveStatus').textContent = base + ' Protected from automatic cleanup.'; }).catch(() => {}); } catch (e) {}
+  $('undoErase').hidden = !hasUndo();
+}
+function mergeSave(imp) {          // restoring adds to what's here; it never takes anything away
+  save.completed = Math.max(save.completed, imp.completed);
+  for (const k of Object.keys(imp.best)) if (better(imp.best[k], save.best[k])) save.best[k] = imp.best[k];
+  for (const k of Object.keys(imp.daily)) if (better(imp.daily[k], save.daily[k])) save.daily[k] = imp.daily[k];
+  for (const k of imp.order) if (!save.prog[k]) { save.prog[k] = imp.prog[k]; save.order.push(k); }
+  while (save.order.length > 12) delete save.prog[save.order.shift()];
+  save.tut = save.tut || imp.tut; persist();
+}
+$('settingsBtn').onclick = () => { refreshSettings(); $('eraseBox').hidden = true; $('restoreMsg').textContent = ''; $('settings').hidden = false; };
+$('closeSettings').onclick = () => { $('settings').hidden = true; };
+$('lookClassic').onclick = () => setLook('classic', true);
+$('lookNight').onclick = () => setLook('night', true);
+$('copyCode').onclick = () => copyText(saveCode(), 'Save code copied. Keep it somewhere safe.');
+$('restoreCode').onclick = () => {
+  const imp = loadCode($('codeIn').value);
+  if (!imp) { $('restoreMsg').textContent = "That doesn't look like a save code. Copy the whole code, including the BP1- at the start."; return; }
+  mergeSave(imp); $('codeIn').value = ''; $('restoreMsg').textContent = 'Restored. You are on level ' + (save.completed + 1) + '.'; renderHome(); refreshSettings();
+};
+$('eraseBtn').onclick = () => { $('eraseWarn').textContent = 'This removes ' + plural(save.completed, 'finished level') + ', your best scores and any unfinished puzzles from this device. You can bring it back right after.'; $('eraseBox').hidden = false; $('eraseCancel').focus(); };
+$('eraseCancel').onclick = () => { $('eraseBox').hidden = true; };
+$('eraseGo').onclick = () => {
+  try { localStorage.setItem(UNDO_KEY, JSON.stringify(save)); } catch (e) {}
+  const keep = save.tut; for (const k of Object.keys(save)) delete save[k]; Object.assign(save, normalize({ tut: keep }));
+  persist(); $('eraseBox').hidden = true; renderHome(); refreshSettings();
+};
+$('undoErase').onclick = () => {
+  try { const old = normalize(JSON.parse(localStorage.getItem(UNDO_KEY))); for (const k of Object.keys(save)) delete save[k]; Object.assign(save, old); persist(); localStorage.removeItem(UNDO_KEY); } catch (e) {}
+  renderHome(); refreshSettings();
 };
 
 // ---------- confetti ----------
@@ -638,10 +803,14 @@ function fxLoop() {
 }
 
 // test hooks (also handy in the console)
-window.__bp = { getPath, getDaily, genPath, buildPath, verifyPath, openLevel, openDaily, commitPath, undo, matched, isSolved, hint, showTut, closeTut,
+window.__bp = { getSave: () => save, saveCode, loadCode, mergeSave, normalize, setLook, getLook: () => look, KEY, BACKUP, getPath, getDaily, genPath, buildPath, verifyPath, openLevel, openDaily, commitPath, undo, matched, isSolved, hint, showTut, closeTut,
   state: () => ({ L, paths, moves, undos, hints, ghost, flash, demo: !!demo, won, G, drawing: drawing && drawing.cells.slice(), geo: { SZ, CS, PAD, n: L && L.n } }),
   persistOff: () => { persist = () => {}; } };
 
+(function initLook() {
+  let v = null; try { v = localStorage.getItem(LOOK_KEY); } catch (e) {}
+  setLook(v === 'night' || v === 'classic' ? v : (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'night' : 'classic'), false);
+})();
 renderHome();
 
 // A shared link opens the same puzzle: ?level=5 or ?daily=20261105
