@@ -450,13 +450,18 @@ function ring(t, ok, pulse, now) {
   if (ok) { ctx.strokeStyle = '#fff'; ctx.lineWidth = CS * 0.07; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(x - CS * 0.1, y + CS * 0.005); ctx.lineTo(x - CS * 0.025, y + CS * 0.08); ctx.lineTo(x + CS * 0.11, y - CS * 0.08); ctx.stroke(); }
 }
+// Flat, chunky dot: a darker edge underneath (like the buttons), a solid face, a soft inner ring.
+// Dots that still need a line get a small white centre and a gently pulsing halo.
 function dot(x, y, h, r, now, idle) {
-  if (idle) { ctx.strokeStyle = col(h, 0.28 + 0.2 * Math.sin(now / 280), 70); ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, r + CS * 0.06 + CS * 0.02 * Math.sin(now / 280), 0, 7); ctx.stroke(); }
-  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.5)'; ctx.shadowBlur = 8; ctx.shadowOffsetY = 3;
-  const g = ctx.createRadialGradient(x - r * 0.35, y - r * 0.4, r * 0.1, x, y, r);
-  g.addColorStop(0, col(h, 1, 80)); g.addColorStop(0.55, col(h, 1, 58)); g.addColorStop(1, col(h, 1, 44));
-  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill(); ctx.restore();
-  ctx.strokeStyle = 'rgba(255,255,255,.92)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.stroke();
+  if (idle) {
+    const p = Math.sin(now / 320);
+    ctx.fillStyle = col(h, 0.16 + 0.08 * p, 64); ctx.beginPath(); ctx.arc(x, y, r + CS * (0.09 + 0.03 * p), 0, 7); ctx.fill();
+  }
+  ctx.fillStyle = col(h, 1, 28); ctx.beginPath(); ctx.arc(x, y + CS * 0.06, r, 0, 7); ctx.fill();      // edge
+  ctx.fillStyle = col(h, 1, 58); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();                  // face
+  ctx.strokeStyle = 'rgba(255,255,255,.38)'; ctx.lineWidth = Math.max(2, CS * 0.035);
+  ctx.beginPath(); ctx.arc(x, y, r * 0.72, 0, 7); ctx.stroke();                                         // inner ring
+  if (idle) { ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(x, y, r * 0.2, 0, 7); ctx.fill(); }
 }
 function draw(now) {
   if (!L || $('game').hidden) return;
@@ -507,7 +512,7 @@ function draw(now) {
   L.targets.forEach((t, i) => ring(t, mt[i], pulse, now));
   L.sources.forEach(s => {
     const i = s.r * n + s.c, used = paths.some(p => p.a === i || p.b === i);
-    dot(cellX(i), cellY(i), s.h, CS * 0.28, now, !used && !won);
+    dot(cellX(i), cellY(i), s.h, CS * 0.31, now, !used && !won);
   });
 }
 (function loop(now) { draw(now || performance.now()); requestAnimationFrame(loop); })();
