@@ -1,6 +1,6 @@
 // Lets the site work with no internet after it has been opened once.
 // The page is fetched fresh when online (so updates arrive) and served from the cache when offline.
-const CACHE = 'blendpath-v1';   // bump when the APP list below changes
+const CACHE = 'blendpath-v2';   // bump when the APP list below changes
 const APP = ['./', 'index.html', 'manifest.webmanifest', 'icon-192.png', 'icon-512.png', 'icon-180.png', 'icon-maskable-512.png'];
 
 self.addEventListener('install', e => {
