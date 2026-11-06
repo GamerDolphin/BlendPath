@@ -324,7 +324,7 @@ function startLevelSpec(spec) {
   else if (spec.mode === 'level' && spec.level <= 2) startDemo();
 }
 const openLevel = k => startLevelSpec({ kind: 'path', mode: 'level', level: k });
-const openDaily = () => startLevelSpec({ kind: 'path', mode: 'daily', date: ymd() });
+const openDaily = d => startLevelSpec({ kind: 'path', mode: 'daily', date: typeof d === 'number' ? d : ymd() });
 
 function updateHud() {
   $('mvl').innerHTML = '<b>' + moves + '</b> ' + (moves === 1 ? 'move' : 'moves');
@@ -450,18 +450,18 @@ function ring(t, ok, pulse, now) {
   if (ok) { ctx.strokeStyle = '#fff'; ctx.lineWidth = CS * 0.07; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
     ctx.beginPath(); ctx.moveTo(x - CS * 0.1, y + CS * 0.005); ctx.lineTo(x - CS * 0.025, y + CS * 0.08); ctx.lineTo(x + CS * 0.11, y - CS * 0.08); ctx.stroke(); }
 }
-// Flat, chunky dot: a darker edge underneath (like the buttons), a solid face, a soft inner ring.
-// Dots that still need a line get a small white centre and a gently pulsing halo.
+// Rounded-square token that matches the tiles: darker edge underneath, solid face, a small inner square.
+// Dots that still need a line have a bright inner square and a gently pulsing halo.
 function dot(x, y, h, r, now, idle) {
+  const rr = (cx, cy, w, rad) => { ctx.beginPath(); ctx.roundRect(cx, cy, w, w, rad); };
   if (idle) {
-    const p = Math.sin(now / 320);
-    ctx.fillStyle = col(h, 0.16 + 0.08 * p, 64); ctx.beginPath(); ctx.arc(x, y, r + CS * (0.09 + 0.03 * p), 0, 7); ctx.fill();
+    const p = Math.sin(now / 320), g = r + CS * (0.07 + 0.025 * p);
+    ctx.fillStyle = col(h, 0.16 + 0.08 * p, 64); rr(x - g, y - g, g * 2, g * 0.42); ctx.fill();
   }
-  ctx.fillStyle = col(h, 1, 28); ctx.beginPath(); ctx.arc(x, y + CS * 0.06, r, 0, 7); ctx.fill();      // edge
-  ctx.fillStyle = col(h, 1, 58); ctx.beginPath(); ctx.arc(x, y, r, 0, 7); ctx.fill();                  // face
-  ctx.strokeStyle = 'rgba(255,255,255,.38)'; ctx.lineWidth = Math.max(2, CS * 0.035);
-  ctx.beginPath(); ctx.arc(x, y, r * 0.72, 0, 7); ctx.stroke();                                         // inner ring
-  if (idle) { ctx.fillStyle = 'rgba(255,255,255,.95)'; ctx.beginPath(); ctx.arc(x, y, r * 0.2, 0, 7); ctx.fill(); }
+  ctx.fillStyle = col(h, 1, 28); rr(x - r, y - r + CS * 0.06, r * 2, r * 0.4); ctx.fill();            // edge
+  ctx.fillStyle = col(h, 1, 58); rr(x - r, y - r, r * 2, r * 0.4); ctx.fill();                        // face
+  const q = r * 0.34;
+  ctx.fillStyle = idle ? 'rgba(255,255,255,.92)' : 'rgba(255,255,255,.35)'; rr(x - q, y - q, q * 2, q * 0.45); ctx.fill();
 }
 function draw(now) {
   if (!L || $('game').hidden) return;
@@ -607,7 +607,8 @@ function summary() {
 function shareText() {
   const day = G.mode === 'daily' && new Date(Math.floor(G.date / 10000), Math.floor(G.date / 100) % 100 - 1, G.date % 100).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const head = G.mode === 'daily' ? 'Blend Path · ' + day : 'Blend Path · Level ' + G.level;
-  return head + ' ' + starText() + '\n' + summary() + '\nThink you can beat it?\n' + SHARE_URL;
+  const link = SHARE_URL + (G.mode === 'daily' ? '?daily=' + G.date : '?level=' + G.level);
+  return head + ' ' + starText() + '\n' + summary() + '\nCan you beat my ' + plural(moves, 'move') + '?\n' + link;
 }
 function copyText(text) {
   const ok = () => toast('Copied! Paste it in a message.');
@@ -642,6 +643,15 @@ window.__bp = { getPath, getDaily, genPath, buildPath, verifyPath, openLevel, op
   persistOff: () => { persist = () => {}; } };
 
 renderHome();
+
+// A shared link opens the same puzzle: ?level=5 or ?daily=20261105
+(function openFromLink() {
+  try {
+    const q = new URLSearchParams(location.search), d = q.get('daily'), k = q.get('level');
+    if (d && /^\d{8}$/.test(d)) openDaily(+d);
+    else if (k && /^\d{1,3}$/.test(k) && +k >= 1) openLevel(+k);
+  } catch (e) {}
+})();
 
 // Offline mode: after the first visit the game keeps working with no internet.
 if ('serviceWorker' in navigator && location.protocol !== 'file:') {
