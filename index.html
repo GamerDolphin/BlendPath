@@ -75,8 +75,7 @@
   .sheet { background:var(--card); border:3px solid var(--ink); border-radius:26px; padding:24px 22px 22px; width:min(100%,370px); text-align:center; box-shadow:0 8px 0 rgba(43,36,56,.25); }
   .sheet h2 { margin:0 0 6px; font-size:32px; font-weight:700; }
   .sheet p { margin:0; color:var(--muted); font-size:17px; line-height:1.35; }
-  .stars { font-size:38px; line-height:1; color:var(--coral); letter-spacing:4px; margin:10px 0 6px; font-family:system-ui,sans-serif; }
-  #winBoard { display:block; margin:12px auto 0; width:132px; height:132px; }
+  #winShare { margin:16px 0 0; padding:12px 14px; text-align:left; white-space:pre-wrap; overflow-wrap:anywhere; font:inherit; font-size:15px; line-height:1.5; color:var(--ink); background:var(--bg); border:2px solid var(--line); border-radius:14px; -webkit-user-select:text; user-select:text; }
   textarea { width:100%; font:inherit; font-size:15px; padding:10px 12px; border-radius:12px; border:2px solid var(--line); background:var(--bg); color:var(--ink); resize:none; margin:8px 0; -webkit-user-select:text; user-select:text; }
   .sheet.left { text-align:left; max-height:92vh; overflow-y:auto; }
   .sheet.left h2 { font-size:28px; }
@@ -151,8 +150,7 @@
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="winTitle">
     <h2 id="winTitle">Nicely blended!</h2>
     <p id="winText"></p>
-    <div class="stars" id="winStars" role="img"></div>
-    <canvas id="winBoard" width="264" height="264" aria-hidden="true"></canvas>
+    <pre id="winShare" aria-label="The message that will be shared"></pre>
     <div class="stack">
       <button class="primary wide" id="nextBtn">Next level</button>
       <button class="secondary wide" id="shareBtn">Share result</button>
@@ -480,7 +478,7 @@ function showWin(isBest) {
   const lvl = G.mode === 'level', best = bestOf();
   let t = (lvl ? 'Level ' + G.level : "Today's puzzle") + ': ' + plural(moves, 'move') + ', ' + plural(undos, 'undo') + (hints ? ', ' + plural(hints, 'hint') : '') + '.';
   if (isBest) t += ' A new best!'; else if (best && (best[0] !== moves || best[1] !== undos)) t += ' Best: ' + plural(best[0], 'move') + ', ' + plural(best[1], 'undo') + '.';
-  $('winText').textContent = t; $('winStars').textContent = starText(); $('winStars').setAttribute('aria-label', stars() + ' out of 3 stars'); drawMini();
+  $('winText').textContent = t; $('winShare').textContent = shareText();
   $('nextBtn').hidden = !lvl; $('win').hidden = false; confetti();
 }
 
@@ -631,18 +629,6 @@ function draw(now) {
     dot(cellX(i), cellY(i), s.h, CS * 0.31, now, !used && !won);
   });
 }
-// small picture of the finished board for the win sheet
-function drawMini() {
-  const c = $('winBoard'), g = c.getContext('2d'), S = 132, n = L.n, gap = 3, t = (S - gap * (n + 1)) / n, hm = hueMap();
-  g.setTransform(2, 0, 0, 2, 0, 0); g.clearRect(0, 0, S, S);
-  g.fillStyle = T.mini; g.beginPath(); g.roundRect(0, 0, S, S, 16); g.fill();
-  for (let r = 0; r < n; r++) for (let q = 0; q < n; q++) {
-    const h = hm.get(r * n + q); g.fillStyle = h != null ? col(h, 1, T.miniL) : '#999';
-    g.beginPath(); g.roundRect(gap + q * (t + gap), gap + r * (t + gap), t, t, Math.max(3, t * 0.25)); g.fill();
-  }
-}
-(function loop(now) { draw(now || performance.now()); requestAnimationFrame(loop); })();
-
 // ---------- UI ----------
 function fmtDate(d) { return new Date(Math.floor(d / 10000), Math.floor(d / 100) % 100 - 1, d % 100).toLocaleDateString(undefined, { weekday: 'long', month: 'long', day: 'numeric' }); }
 function toast(msg, ms) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms || 2200); }
@@ -717,9 +703,6 @@ $('helpBtn').onclick = showTut;
 $('nextBtn').onclick = () => openLevel(G.level + 1);
 
 const SHARE_URL = 'https://gamerdolphin.github.io/BlendPath/';
-// Stars say how clean the solve was: 3 = no undos and no hints, 2 = no hints (or one hint and no undos), 1 = otherwise.
-function stars() { return hints === 0 && undos === 0 ? 3 : (hints === 0 || (hints === 1 && undos === 0)) ? 2 : 1; }
-const starText = () => '★'.repeat(stars()) + '☆'.repeat(3 - stars());
 function summary() {
   return 'Solved in ' + plural(moves, 'move') + ' with ' + (undos ? plural(undos, 'undo') : 'no undos') + ' and ' + (hints ? plural(hints, 'hint') : 'no hints') + '.';
 }
