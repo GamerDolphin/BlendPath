@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
-<meta name="color-scheme" content="dark">
-<meta name="theme-color" content="#14182b">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#fbf4e8">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Blend Path</title>
 <link rel="manifest" href="manifest.webmanifest">
@@ -12,73 +12,75 @@
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
-  :root { color-scheme: dark;
-    --font: "Fredoka", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-    --bg:#14182b; --bg2:#0e1124; --surface:#1f2542; --surface2:#2b3357; --tile:#2a3150; --edge:#090c19; --line:#3a4472;
-    --text:#f4f5fb; --muted:#b9bfdc; --gold:#ffd23f; --on-gold:#241b00; --good:#7ee08a; --danger:#ff6b6b;
-    --r-sm:12px; --r-lg:20px; }
+  :root { color-scheme: light;
+    --font: "Outfit", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    --bg:#fbf4e8; --card:#ffffff; --ink:#2b2438; --muted:#6a6277; --line:#eadfcf; --edge:#e0d1ba;
+    --coral:#ff7a59; --on-coral:#2b1710; --warn:#b3401f; --done:#2f9e6e;
+    --board:#2b2540; --board2:#241f38; --r-lg:22px; }
   [hidden] { display: none !important; }
   * { box-sizing: border-box; }
-  html, body { margin:0; height:100%; color:var(--text); font-family:var(--font);
-    background: var(--bg) radial-gradient(120% 60% at 50% -8%, #28316a 0%, rgba(40,49,106,0) 70%) no-repeat;
+  html, body { margin:0; height:100%; color:var(--ink); font-family:var(--font);
+    background: var(--bg) radial-gradient(90% 45% at 85% -5%, #ffe3d6 0%, rgba(255,227,214,0) 70%), radial-gradient(80% 40% at 0% 100%, #e3f0ff 0%, rgba(227,240,255,0) 70%);
+    background-repeat:no-repeat;
     -webkit-tap-highlight-color: transparent; -webkit-user-select:none; user-select:none; -webkit-touch-callout:none; }
   body { touch-action: manipulation; overflow:hidden; }
   button { font: inherit; color: inherit; cursor: pointer; }
-  button:focus-visible { outline: 3px solid #fff; outline-offset: 2px; }
+  button:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
   .view { position:fixed; inset:0; display:flex; flex-direction:column; overflow-y:auto;
     padding: calc(env(safe-area-inset-top) + 14px) 18px calc(env(safe-area-inset-bottom) + 16px); max-width: 560px; margin: 0 auto; }
-  /* buttons: chunky, with a pressed state */
-  .primary, .secondary { min-height:54px; padding:0 22px; border:none; border-radius:16px; font-size:19px; font-weight:600; letter-spacing:.2px;
-    box-shadow: 0 4px 0 var(--edge); transition: transform 100ms ease-out, box-shadow 100ms ease-out, filter 100ms; }
-  .primary:active, .secondary:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--edge); }
-  .primary { background: var(--gold); color: var(--on-gold); }
-  .secondary { background: var(--surface2); color: var(--text); }
-  .primary:disabled, .secondary:disabled { opacity:.4; cursor:default; box-shadow:0 4px 0 var(--edge); transform:none; }
+  .primary, .secondary { min-height:54px; padding:0 22px; border-radius:16px; font-size:18px; font-weight:600;
+    transition: transform 100ms ease-out, box-shadow 100ms ease-out; }
+  .primary { background:var(--coral); color:var(--on-coral); border:none; box-shadow: 0 4px 0 #d9532f; }
+  .secondary { background:var(--card); color:var(--ink); border:2px solid var(--ink); box-shadow: 0 4px 0 var(--ink); }
+  .primary:active { transform: translateY(3px); box-shadow: 0 1px 0 #d9532f; }
+  .secondary:active { transform: translateY(3px); box-shadow: 0 1px 0 var(--ink); }
+  .primary:disabled, .secondary:disabled { opacity:.38; cursor:default; transform:none; }
   .ghost { min-height:44px; padding:0 12px; border:none; background:transparent; border-radius:12px; font-size:17px; font-weight:500; color:var(--muted); }
   .wide { width:100%; }
   /* home */
-  .hero { text-align:center; padding: 10px 0 8px; }
-  .mini { display:grid; grid-template-columns:repeat(3,26px); gap:5px; justify-content:center; margin:6px auto 12px; }
-  .mini i { width:26px; height:26px; border-radius:7px; display:block; }
-  h1 { margin:0; font-size:44px; line-height:1.05; letter-spacing:.5px; font-weight:700; }
-  .sub { margin:8px auto 18px; max-width:30ch; color:var(--muted); font-size:17px; line-height:1.35; }
-  .card { background:var(--surface); border:1px solid var(--line); border-radius:var(--r-lg); padding:16px 18px 18px; margin-bottom:14px; }
-  .eyebrow { font-size:14px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); }
+  .hero { text-align:center; padding: 8px 0 6px; }
+  .mini { display:grid; grid-template-columns:repeat(3,28px); gap:5px; justify-content:center; margin:6px auto 14px; padding:9px; background:var(--board); border-radius:18px; width:max-content; box-shadow:0 8px 20px rgba(43,37,64,.25); }
+  .mini i { width:28px; height:28px; border-radius:8px; display:block; }
+  h1 { margin:0; font-size:46px; line-height:1.05; letter-spacing:-.5px; font-weight:700; }
+  .rule { height:6px; width:120px; border-radius:3px; margin:10px auto 0; background:linear-gradient(90deg,#ff5a5f,#ffb100,#9bdc2a,#2fd6a0,#3b82f6,#a24df0); }
+  .sub { margin:14px auto 20px; max-width:30ch; color:var(--muted); font-size:18px; line-height:1.35; }
+  .card { background:var(--card); border:2px solid var(--line); border-radius:var(--r-lg); padding:16px 18px 18px; margin-bottom:14px; box-shadow:0 4px 0 var(--edge); }
+  .eyebrow { font-size:14px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted); font-weight:600; }
   .big { font-size:22px; font-weight:600; margin:2px 0 12px; }
   h2.st { font-size:15px; letter-spacing:.1em; text-transform:uppercase; color:var(--muted); margin:24px 0 10px; font-weight:600; }
   .levels { display:grid; grid-template-columns: repeat(auto-fill,minmax(78px,1fr)); gap:10px; }
-  .lvl { background:var(--surface); border:2px solid var(--line); border-radius:16px; min-height:68px; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 3px 0 var(--edge); }
+  .lvl { background:var(--card); border:2px solid var(--line); border-radius:16px; min-height:68px; display:flex; flex-direction:column; align-items:center; justify-content:center; box-shadow:0 3px 0 var(--edge); }
   .lvl .n { font-size:24px; font-weight:700; line-height:1.1; }
   .lvl .s { font-size:13px; color:var(--muted); }
-  .lvl.done { border-color:#3f8f6a; }
-  .lvl.next { border-color:var(--gold); }
+  .lvl.done { border-color:var(--done); }
+  .lvl.next { border-color:var(--coral); border-width:3px; }
   /* game */
   .bar { display:flex; align-items:center; justify-content:space-between; gap:8px; min-height:48px; }
-  .bar .title { font-weight:700; font-size:21px; }
-  .help { width:44px; padding:0; font-weight:700; font-size:20px; color:var(--text); background:var(--surface); border:1.5px solid var(--line); border-radius:50%; }
+  .bar .title { font-weight:700; font-size:22px; }
+  .help { width:44px; padding:0; font-weight:700; font-size:20px; color:var(--ink); background:var(--card); border:2px solid var(--line); border-radius:50%; }
   .stats { display:flex; justify-content:center; gap:8px; margin-top:4px; flex-wrap:wrap; }
-  .chip { background:var(--surface); border:1px solid var(--line); border-radius:999px; padding:5px 13px; font-size:15px; color:var(--muted); }
-  .chip b { color:var(--text); font-weight:700; }
-  #hint { text-align:center; margin:10px 10px 0; color:var(--muted); font-size:16px; line-height:1.3; min-height:42px; }
+  .chip { background:var(--card); border:2px solid var(--line); border-radius:999px; padding:4px 13px; font-size:15px; color:var(--muted); }
+  .chip b { color:var(--ink); font-weight:700; }
+  #hint { text-align:center; margin:10px 10px 0; color:var(--muted); font-size:17px; line-height:1.3; min-height:44px; }
   .boardWrap { flex:1; display:flex; align-items:center; justify-content:center; min-height:0; }
-  canvas#cv { width:min(94vw,56vh,480px); aspect-ratio:1; touch-action:none; border-radius:24px;
-    background:linear-gradient(180deg,#232a4d,#1a2040); border:1px solid var(--line); box-shadow:0 10px 30px rgba(0,0,0,.45); }
-  .bottom { justify-content:center; gap:12px; padding-top:6px; }
+  canvas#cv { width:min(94vw,56vh,480px); aspect-ratio:1; touch-action:none; border-radius:26px;
+    background:linear-gradient(180deg,var(--board),var(--board2)); border:3px solid var(--ink); box-shadow:0 10px 0 rgba(43,36,56,.18), 0 18px 30px rgba(43,36,56,.22); }
+  .bottom { justify-content:center; gap:12px; padding-top:8px; }
   .bottom .secondary, .bottom .primary { min-width:96px; flex:1; max-width:150px; padding:0 14px; }
   /* overlays */
-  .overlay { position:fixed; inset:0; background:rgba(8,10,22,.7); display:flex; align-items:center; justify-content:center; padding:20px; z-index:5; }
-  .sheet { background:var(--surface); border:1px solid var(--line); border-radius:24px; padding:24px 22px 22px; width:min(100%,370px); text-align:center; box-shadow:0 20px 50px rgba(0,0,0,.5); }
-  .sheet h2 { margin:0 0 6px; font-size:30px; font-weight:700; }
+  .overlay { position:fixed; inset:0; background:rgba(43,36,56,.55); display:flex; align-items:center; justify-content:center; padding:20px; z-index:5; }
+  .sheet { background:var(--card); border:3px solid var(--ink); border-radius:26px; padding:24px 22px 22px; width:min(100%,370px); text-align:center; box-shadow:0 8px 0 rgba(43,36,56,.25); }
+  .sheet h2 { margin:0 0 6px; font-size:32px; font-weight:700; }
   .sheet p { margin:0; color:var(--muted); font-size:17px; line-height:1.35; }
   .grid { white-space:pre; margin:14px 0 2px; font-size:28px; line-height:1.12; letter-spacing:1px; font-family:system-ui,"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif; }
   .stack { display:flex; flex-direction:column; gap:12px; margin-top:18px; }
   .dots { display:flex; justify-content:center; gap:8px; margin-top:14px; }
   .dots i { width:10px; height:10px; border-radius:50%; background:var(--line); }
-  .dots i.on { background:var(--gold); }
+  .dots i.on { background:var(--coral); }
   .toast { position:fixed; left:50%; top:calc(env(safe-area-inset-top) + 64px); max-width:min(92vw,420px); text-align:center; transform:translateX(-50%);
-    background:var(--surface2); border:1px solid var(--line); color:var(--text); padding:11px 16px; border-radius:14px; font-size:16px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:9; box-shadow:0 8px 24px rgba(0,0,0,.4); }
+    background:var(--ink); color:#fff; padding:11px 16px; border-radius:14px; font-size:16px; opacity:0; transition:opacity .2s; pointer-events:none; z-index:9; }
   .toast.show { opacity:1; }
   #fx { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:8; }
   @media (prefers-reduced-motion: reduce) { .primary, .secondary { transition:none; } }
@@ -90,6 +92,7 @@
   <div class="hero">
     <div class="mini" id="mini" aria-hidden="true"></div>
     <h1 id="logo">Blend Path</h1>
+    <div class="rule"></div>
     <p class="sub">Draw lines between dots. Colors blend along the way. Fill every tile.</p>
   </div>
   <section class="card">
@@ -280,7 +283,7 @@ let SZ = 300, DPR = 1, PAD = 10, CS = 60, wallSet = new Set();
 // blend-path state
 let paths = [], drawing = null, srcAt = new Map();
 let lastPos = null, headX = 0, headY = 0;
-let hints = 0, ghost = null, flash = null, demo = null;
+let hints = 0, ghost = null, flash = null, demo = null, log = [];   // log = what you did, in order (shared instead of the answer)
 
 const cellX = i => PAD + (i % L.n + 0.5) * CS;
 const cellY = i => PAD + (Math.floor(i / L.n) + 0.5) * CS;
@@ -294,14 +297,14 @@ function matched() {
 const coveredCount = () => paths.reduce((s, p) => s + p.cells.length, 0);
 
 function startLevelSpec(spec) {
-  G = spec;
+  G = spec; bits = [];   // clear any confetti left from the last win
   L = spec.mode === 'daily' ? getDaily(spec.date) : getPath(spec.level);
   wallSet = new Set(L.walls || []);
   srcAt = new Map((L.sources || []).map(s => [s.r * L.n + s.c, s]));
   paths = []; drawing = null;
-  moves = 0; undos = 0; hints = 0; ghost = null; flash = null; demo = null; won = false;
+  moves = 0; undos = 0; hints = 0; log = []; ghost = null; flash = null; demo = null; won = false;
   $('gameTitle').textContent = spec.mode === 'daily' ? 'Today' : 'Level ' + spec.level;
-  clearTimeout(say.t); $('hint').style.color = ''; $('hint').textContent = L.hint || '';
+  clearTimeout(say.t); $('hint').style.color = ''; $('hint').style.fontWeight = ''; $('hint').textContent = L.hint || '';
   $('home').hidden = true; $('game').hidden = false; $('win').hidden = true;
   updateHud(); resize(); requestAnimationFrame(resize);
   if (spec.mode === 'level' && spec.level === 1 && !save.tut) setTimeout(() => { if (G === spec && !$('game').hidden && !won) showTut(); }, 350);
@@ -319,14 +322,14 @@ function updateHud() {
 function commitPath(cells) {
   const a = cells[0], b = cells[cells.length - 1];
   paths.push({ a, b, cells: cells.slice(), hues: pathHues(a, b, cells.length), t: performance.now() });
-  moves++; drawing = null; updateHud(); checkWin();
+  moves++; log.push('m'); drawing = null; updateHud(); checkWin();
 }
 function undo() {
   if (won) return;
   if (!paths.length) return; paths.pop();
-  undos++; updateHud();
+  undos++; log.push('u'); updateHud();
 }
-function erasePath(pi) { paths.splice(pi, 1); undos++; updateHud(); }
+function erasePath(pi) { paths.splice(pi, 1); undos++; log.push('u'); updateHud(); }
 function isSolved() {
   if (!L.targets.length || !matched().every(Boolean)) return false;
   return coveredCount() === L.n * L.n;   // every tile colored, so every dot is used
@@ -341,7 +344,7 @@ function checkWin() {
   } else {
     const prev = save.daily[G.date]; if (better(cur, prev)) { save.daily[G.date] = cur; isBest = !!prev; }
   }
-  persist(); setTimeout(() => showWin(isBest), 700);
+  const spec = G; persist(); setTimeout(() => { if (G === spec && won && !$('game').hidden) showWin(isBest); }, 700);
 }
 function bestOf() { return G.mode === 'level' ? save.best[G.level] : save.daily[G.date]; }
 function showWin(isBest) {
@@ -448,7 +451,7 @@ function draw(now) {
   // tiles: empty = dark slate; a tile a line covers is filled with that line's colour
   for (let i = 0; i < n * n; i++) {
     const x = PAD + (i % n) * CS, y = PAD + Math.floor(i / n) * CS, h = hm.get(i), rr = CS * 0.2;
-    ctx.fillStyle = h != null ? col(h, 0.92, 44) : '#2b3254';
+    ctx.fillStyle = h != null ? col(h, 0.92, 44) : '#3b3559';
     ctx.beginPath(); ctx.roundRect(x + 3, y + 3, CS - 6, CS - 6, rr); ctx.fill();
     ctx.strokeStyle = h != null ? 'rgba(255,255,255,.22)' : 'rgba(255,255,255,.07)'; ctx.lineWidth = 1.5;
     ctx.beginPath(); ctx.roundRect(x + 3.75, y + 3.75, CS - 7.5, CS - 7.5, rr); ctx.stroke();
@@ -500,8 +503,8 @@ function fmtDate(d) { return new Date(Math.floor(d / 10000), Math.floor(d / 100)
 function toast(msg, ms) { const t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), ms || 2200); }
 // a message in the instruction line under the header (used by hints), then back to the level's own text
 function say(msg, ms) {
-  const h = $('hint'); h.textContent = msg; h.style.color = 'var(--gold)';
-  clearTimeout(say.t); say.t = setTimeout(() => { h.textContent = (L && L.hint) || ''; h.style.color = ''; }, ms || 4500);
+  const h = $('hint'); h.textContent = msg; h.style.color = 'var(--warn)'; h.style.fontWeight = '600';
+  clearTimeout(say.t); say.t = setTimeout(() => { h.textContent = (L && L.hint) || ''; h.style.color = ''; h.style.fontWeight = ''; }, ms || 4500);
 }
 function fillGrid(box, upto, best, open) {
   box.innerHTML = '';
@@ -521,7 +524,6 @@ function renderHome() {
   fillGrid($('levels'), save.completed + 1, save.best, openLevel);
 }
 // colourful logo and tile motif on the home screen
-$('logo').innerHTML = 'Blend Path'.split('').map((ch, i) => ch === ' ' ? ' ' : '<span style="color:hsl(' + (i * 34) % 360 + ',78%,66%)">' + ch + '</span>').join('');
 $('mini').innerHTML = [0, 1, 2, 5, 4, 3, 6, 7, 8].map((cell, i) => ({ cell, i })).sort((a, b) => a.cell - b.cell).map(o => '<i style="background:hsl(' + o.i * 36 + ',74%,56%)"></i>').join('');
 function goHome() { $('game').hidden = true; $('win').hidden = true; $('home').hidden = false; renderHome(); }
 $('playToday').onclick = openDaily;
@@ -539,7 +541,7 @@ function hint() {
   const now = performance.now(), good = new Set(); L.sol.forEach(p => { good.add(keyOf(p)); good.add(revOf(p)); });
   demo = null;
   const bad = paths.findIndex(p => !good.has(keyOf(p.cells)));
-  hints++; updateHud();
+  hints++; log.push('h'); updateHud();
   if (bad >= 0) { flash = { i: bad, until: now + 3000 }; ghost = null; say("The red flashing line isn't in the solution I know. Tap it to erase it.", 5000); return; }
   const have = new Set(); paths.forEach(p => { have.add(keyOf(p.cells)); have.add(revOf(p.cells)); });
   const next = L.sol.find(p => !have.has(keyOf(p)));
@@ -576,10 +578,16 @@ function boardEmoji() {
   for (let r = 0; r < n; r++) { let row = ''; for (let c = 0; c < n; c++) row += hm.has(r * n + c) ? EMOJI(hm.get(r * n + c)) : '⬛'; rows.push(row); }
   return rows.join('\n');
 }
+// one square per action, in order: green = a line, red = an undo, yellow = a hint. It shows how you played, not the answer.
+function actionStrip() {
+  const sq = log.map(a => a === 'm' ? '🟩' : a === 'u' ? '🟥' : '🟨'), rows = [];
+  for (let i = 0; i < sq.length; i += 8) rows.push(sq.slice(i, i + 8).join(''));
+  return rows.join('\n') + '\n🟩 line · 🟥 undo · 🟨 hint';
+}
 function shareText() {
   const day = G.mode === 'daily' && new Date(Math.floor(G.date / 10000), Math.floor(G.date / 100) % 100 - 1, G.date % 100).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
   const head = G.mode === 'daily' ? 'Blend Path · ' + day : 'Blend Path · Level ' + G.level;
-  return head + '\n' + boardEmoji() + '\n' + plural(moves, 'move') + ' · ' + plural(undos, 'undo') + ' · ' + plural(hints, 'hint') + '\n' + SHARE_URL;
+  return head + '\n' + actionStrip() + '\n' + plural(moves, 'move') + ' · ' + plural(undos, 'undo') + ' · ' + plural(hints, 'hint') + '\n' + SHARE_URL;
 }
 function copyText(text) {
   const ok = () => toast('Copied! Paste it in a message.');
